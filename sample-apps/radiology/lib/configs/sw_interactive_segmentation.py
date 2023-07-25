@@ -35,7 +35,7 @@ class SWInteractiveSegmentationConfig(TaskConfig):
 
         # Labels
         self.labels = [
-            "tumor",
+            "spleen",
             "background",
         ]
 
@@ -55,12 +55,11 @@ class SWInteractiveSegmentationConfig(TaskConfig):
         self.network = get_network("dynunet", self.labels)
 
     def infer(self) -> Union[InferTask, Dict[str, InferTask]]:
-        task: InferTask = lib.infers.Deepgrow(
+        task: InferTask = lib.infers.SWInteractiveSegmentationInfer(
             path=self.path,
             network=self.network,
             labels=self.labels,
             preload=strtobool(self.conf.get("preload", "false")),
-            config={"cache_transforms": True, "cache_transforms_in_memory": True, "cache_transforms_ttl": 300},
         )
         return task
 

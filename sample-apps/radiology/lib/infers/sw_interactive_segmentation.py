@@ -32,6 +32,7 @@ from monai.transforms import (
     Resized,
     Spacingd,
     ToNumpyd,
+    SqueezeDimd,
 )
 
 from monailabel.interfaces.tasks.infer_v2 import InferType
@@ -75,12 +76,17 @@ class SWInteractiveSegmentationInfer(BasicInferTask):
         self.args.sw_roi_size = (128,128,128)
         self.args.train_sw_batch_size = 1
         self.args.val_sw_batch_size = 1
+        self.args.debug = False
 
 
     def pre_transforms(self, data=None) -> Sequence[Callable]:
+        print("#########################################")
         device = data.get("device") if data else None
-        _, t_val = get_pre_transforms(self.labels, device, self.args)
-        return t_val
+        _, t_val = get_pre_transforms(self.labels, device, self.args, input_keys=["image"])
+        print(f"Selected transforms: {t_val}")
+        t = list(t_val.transforms)
+        t.append(EnsureTyped(keys="image", device=data.get("device") if data else None))
+        return t
 
     def inferer(self, data=None) -> Inferer:
         _, val_inferer = get_inferers(
@@ -95,4 +101,14 @@ class SWInteractiveSegmentationInfer(BasicInferTask):
 
     def post_transforms(self, data=None) -> Sequence[Callable]:
         device = data.get("device") if data else None
-        return get_post_transforms(self.labels, device)
+        #return get_post_transforms(self.labels, device)
+        return [
+            EnsureTyped(keys="pred", device=data.get("device") if data else None),
+            Activationsd(keys="pred", softmax=True),
+            AsDiscreted(keys="pred", argmax=True),
+            ToNumpyd(keys="pred"),
+            #RestoreLabeld(keys="pred", ref_image="image", mode="nearest"),
+            SqueezeDimd(keys="pred"),
+            AsChannelLastd(keys="pred"),
+        ]
+
