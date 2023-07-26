@@ -9,7 +9,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Callable, Sequence
+from typing import Callable, Sequence, Union
 
 from monai.apps.deepgrow.transforms import (
     AddGuidanceFromPointsd,
@@ -19,6 +19,7 @@ from monai.apps.deepgrow.transforms import (
     RestoreLabeld,
     SpatialCropGuidanced,
 )
+from monailabel.transform.post import Restored
 from monai.inferers import Inferer, SimpleInferer
 from monai.transforms import (
     Activationsd,
@@ -43,6 +44,7 @@ from sw_interactive_segmentation.api import (
     get_inferers,
 )
 from sw_interactive_segmentation.utils.helper import AttributeDict
+from sw_interactive_segmentation.utils.transforms import AddGuidanceSignal
 
 class SWInteractiveSegmentationInfer(BasicInferTask):
 
@@ -86,6 +88,13 @@ class SWInteractiveSegmentationInfer(BasicInferTask):
         print(f"Selected transforms: {t_val}")
         t = list(t_val.transforms)
         t.append(EnsureTyped(keys="image", device=data.get("device") if data else None))
+        t.append(AddGuidanceSignal(
+            keys="image",
+            guidance_key="guidance",
+            sigma=1,
+            disks=True,
+            device=device,
+        ))
         return t
 
     def inferer(self, data=None) -> Inferer:
@@ -99,6 +108,10 @@ class SWInteractiveSegmentationInfer(BasicInferTask):
         )
         return val_inferer
 
+    def inverse_transforms(self, data=None) -> Union[None, Sequence[Callable]]:
+        return  None
+        #[]  # Self-determine from the list of pre-transforms provided
+
     def post_transforms(self, data=None) -> Sequence[Callable]:
         device = data.get("device") if data else None
         #return get_post_transforms(self.labels, device)
@@ -106,9 +119,10 @@ class SWInteractiveSegmentationInfer(BasicInferTask):
             EnsureTyped(keys="pred", device=data.get("device") if data else None),
             Activationsd(keys="pred", softmax=True),
             AsDiscreted(keys="pred", argmax=True),
+            SqueezeDimd(keys="pred", dim=0),
             ToNumpyd(keys="pred"),
             #RestoreLabeld(keys="pred", ref_image="image", mode="nearest"),
-            SqueezeDimd(keys="pred"),
             AsChannelLastd(keys="pred"),
+            # Restored(keys="pred", ref_image="image"),
         ]
 
