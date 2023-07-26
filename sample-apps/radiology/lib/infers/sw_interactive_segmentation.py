@@ -52,7 +52,7 @@ class SWInteractiveSegmentationInfer(BasicInferTask):
         self,
         path,
         network=None,
-        type=InferType.DEEPGROW,
+        type=InferType.DEEPEDIT,
         labels=None,
         dimension=3,
         description="",
