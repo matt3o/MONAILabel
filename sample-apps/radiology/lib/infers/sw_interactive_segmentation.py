@@ -13,6 +13,9 @@ from typing import Callable, Sequence, Union, Dict, Any
 import logging
 
 import torch
+import numpy as np
+import nibabel as nib
+
 from monai.apps.deepgrow.transforms import (
     AddGuidanceFromPointsd,
     AddGuidanceSignald,
@@ -194,5 +197,27 @@ class NoOpd(MapTransform):
         else:
             # consider them as callable transforms
             data = run_transforms(data, inferer, log_prefix="INF", log_name="Inferer")
+        
+        if True:
+            self.save_nifti(f"{self.path}/im", inputs[0, 0].cpu().detach().numpy())
+            self.save_nifti(
+                f"{self.path}/guidance_fgg_{j}", inputs[0, 1].cpu().detach().numpy()
+            )
+            self.save_nifti(
+                f"{self.path}/guidance_bgg_{j}", inputs[0, 2].cpu().detach().numpy()
+            )
+            self.save_nifti(
+                f"{self.path}/pred_{j}", preds[0, 1].cpu().detach().numpy()
+            )
+
+        
         return data
+
+
+    def save_nifti(self, name, im):
+        affine = np.eye(4)
+        affine[0][0] = -1
+        ni_img = nib.Nifti1Image(im, affine=affine)
+        ni_img.header.get_xyzt_units()
+        ni_img.to_filename(f"{name}.nii.gz")
 
