@@ -11,6 +11,7 @@
 
 from typing import Callable, Sequence, Union
 
+import torch
 from monai.apps.deepgrow.transforms import (
     AddGuidanceFromPointsd,
     AddGuidanceSignald,
@@ -34,7 +35,9 @@ from monai.transforms import (
     Spacingd,
     ToNumpyd,
     SqueezeDimd,
+    MapTransform,
 )
+from monai.transforms.transform import MapTransform
 
 from monailabel.interfaces.tasks.infer_v2 import InferType
 from monailabel.tasks.infer.basic_infer import BasicInferTask
@@ -42,9 +45,12 @@ from sw_interactive_segmentation.api import (
     get_pre_transforms, 
     get_post_transforms,
     get_inferers,
+    get_pre_transforms_val_as_list_monailabel,
 )
 from sw_interactive_segmentation.utils.helper import AttributeDict
-from sw_interactive_segmentation.utils.transforms import AddGuidanceSignal
+from sw_interactive_segmentation.utils.transforms import AddGuidanceSignal, PrintDatad
+
+from monai.utils import set_determinism
 
 class SWInteractiveSegmentationInfer(BasicInferTask):
 
@@ -54,6 +60,7 @@ class SWInteractiveSegmentationInfer(BasicInferTask):
         network=None,
         type=InferType.DEEPEDIT,
         labels=None,
+        label_names=None,
         dimension=3,
         description="",
         **kwargs,
@@ -67,6 +74,7 @@ class SWInteractiveSegmentationInfer(BasicInferTask):
             description=description,
             **kwargs,
         )
+        self.label_names = label_names
 
         self.args = AttributeDict()
         self.args.no_log = True
@@ -79,23 +87,19 @@ class SWInteractiveSegmentationInfer(BasicInferTask):
         self.args.train_sw_batch_size = 1
         self.args.val_sw_batch_size = 1
         self.args.debug = False
+        set_determinism(42)
 
 
     def pre_transforms(self, data=None) -> Sequence[Callable]:
         print("#########################################")
         device = data.get("device") if data else None
-        _, t_val = get_pre_transforms(self.labels, device, self.args, input_keys=["image"])
-        print(f"Selected transforms: {t_val}")
-        t = list(t_val.transforms)
-        t.append(EnsureTyped(keys="image", device=data.get("device") if data else None))
-        t.append(AddGuidanceSignal(
-            keys="image",
-            guidance_key="guidance",
-            sigma=1,
-            disks=True,
-            device=device,
-        ))
-        return t
+        t_val = get_pre_transforms_val_as_list_monailabel(self.label_names, device, self.args, input_keys=["image"])
+        #t_val = []
+        #t_val.append(NoOpd())
+        #t_val.append(LoadImaged(keys="image", reader="ITKReader"))
+
+        #t_val.append(NoOpd())
+        return t_val
 
     def inferer(self, data=None) -> Inferer:
         _, val_inferer = get_inferers(
@@ -109,8 +113,7 @@ class SWInteractiveSegmentationInfer(BasicInferTask):
         return val_inferer
 
     def inverse_transforms(self, data=None) -> Union[None, Sequence[Callable]]:
-        return  None
-        #[]  # Self-determine from the list of pre-transforms provided
+        return []  # Self-determine from the list of pre-transforms provided
 
     def post_transforms(self, data=None) -> Sequence[Callable]:
         device = data.get("device") if data else None
@@ -120,9 +123,32 @@ class SWInteractiveSegmentationInfer(BasicInferTask):
             Activationsd(keys="pred", softmax=True),
             AsDiscreted(keys="pred", argmax=True),
             SqueezeDimd(keys="pred", dim=0),
-            ToNumpyd(keys="pred"),
             #RestoreLabeld(keys="pred", ref_image="image", mode="nearest"),
-            AsChannelLastd(keys="pred"),
-            # Restored(keys="pred", ref_image="image"),
+            #AsChannelLastd(keys="pred"),
+            #Restored(keys="pred", ref_image="image"),
+            #ToNumpyd(keys="pred"),
+            PrintDatad(),
+            EnsureTyped(keys="pred", device="cpu" if data else None, dtype=torch.uint8),
         ]
+
+
+class NoOpd(MapTransform):
+    def __init__(self, keys= None):
+        """
+        A transform which does nothing
+        """
+        super().__init__(keys)
+
+    def __call__(
+        self, data
+        ):
+        #print(data["image"])
+        try:
+            print(data["image"])
+            print(data["image_path"])
+        except AttributeError:
+            pass
+        print(type(data["image"]))
+        return data
+
 

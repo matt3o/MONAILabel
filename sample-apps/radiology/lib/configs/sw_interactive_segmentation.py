@@ -35,10 +35,12 @@ class SWInteractiveSegmentationConfig(TaskConfig):
 
         # Labels
         self.labels = [
-            "spleen",
             "background",
+            "tumor",
         ]
-
+        
+        self.label_names = {label:self.labels.index(label) for label in self.labels}
+        print(self.label_names)
         # Model Files
         self.path = [
             os.path.join(self.model_dir, f"pretrained_{name}.pt"),  # pretrained
@@ -59,6 +61,7 @@ class SWInteractiveSegmentationConfig(TaskConfig):
             path=self.path,
             network=self.network,
             labels=self.labels,
+            label_names=self.label_names, 
             preload=strtobool(self.conf.get("preload", "false")),
         )
         return task
