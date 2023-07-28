@@ -9,7 +9,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from typing import Callable, Sequence, Union
+from typing import Callable, Sequence, Union, Dict, Any
+import logging
 
 import torch
 from monai.apps.deepgrow.transforms import (
@@ -38,7 +39,9 @@ from monai.transforms import (
     MapTransform,
 )
 from monai.transforms.transform import MapTransform
+from monai.data import decollate_batch
 
+from monailabel.interfaces.utils.transform import run_transforms
 from monailabel.interfaces.tasks.infer_v2 import InferType
 from monailabel.tasks.infer.basic_infer import BasicInferTask
 from sw_interactive_segmentation.api import (
@@ -51,6 +54,8 @@ from sw_interactive_segmentation.utils.helper import AttributeDict
 from sw_interactive_segmentation.utils.transforms import AddGuidanceSignal, PrintDatad
 
 from monai.utils import set_determinism
+
+logger = logging.getLogger(__name__)
 
 class SWInteractiveSegmentationInfer(BasicInferTask):
 
@@ -151,4 +156,43 @@ class NoOpd(MapTransform):
         print(type(data["image"]))
         return data
 
+    def run_inferer(self, data: Dict[str, Any], convert_to_batch=True, device="cuda"):
+        """
+        Run Inferer over pre-processed Data.  Derive this logic to customize the normal behavior.
+        In some cases, you want to implement your own for running chained inferers over pre-processed data
+
+        :param data: pre-processed data
+        :param convert_to_batch: convert input to batched input
+        :param device: device type run load the model and run inferer
+        :return: updated data with output_key stored that will be used for post-processing
+        """
+
+        inferer = self.inferer(data)
+        logger.info(f"Inferer:: {device} => {inferer.__class__.__name__} => {inferer.__dict__}")
+
+        network = self._get_network(device, data)
+        if network:
+            inputs = data[self.input_key]
+            inputs = inputs if torch.is_tensor(inputs) else torch.from_numpy(inputs)
+            inputs = inputs[None] if convert_to_batch else inputs
+            inputs = inputs.to(torch.device(device))
+
+            with torch.no_grad():
+                outputs = inferer(inputs, network)
+
+            if device.startswith("cuda"):
+                torch.cuda.empty_cache()
+
+            if convert_to_batch:
+                if isinstance(outputs, dict):
+                    outputs_d = decollate_batch(outputs)
+                    outputs = outputs_d[0]
+                else:
+                    outputs = outputs[0]
+
+            data[self.output_label_key] = outputs
+        else:
+            # consider them as callable transforms
+            data = run_transforms(data, inferer, log_prefix="INF", log_name="Inferer")
+        return data
 
