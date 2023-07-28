@@ -139,26 +139,6 @@ class SWInteractiveSegmentationInfer(BasicInferTask):
             EnsureTyped(keys="pred", device="cpu" if data else None, dtype=torch.uint8),
         ]
 
-
-class NoOpd(MapTransform):
-    def __init__(self, keys= None):
-        """
-        A transform which does nothing
-        """
-        super().__init__(keys)
-
-    def __call__(
-        self, data
-        ):
-        #print(data["image"])
-        try:
-            print(data["image"])
-            print(data["image_path"])
-        except AttributeError:
-            pass
-        print(type(data["image"]))
-        return data
-
     def run_inferer(self, data: Dict[str, Any], convert_to_batch=True, device="cuda"):
         """
         Run Inferer over pre-processed Data.  Derive this logic to customize the normal behavior.
@@ -212,6 +192,28 @@ class NoOpd(MapTransform):
 
         
         return data
+
+
+
+class NoOpd(MapTransform):
+    def __init__(self, keys= None):
+        """
+        A transform which does nothing
+        """
+        super().__init__(keys)
+
+    def __call__(
+        self, data
+        ):
+        #print(data["image"])
+        try:
+            print(data["image"])
+            print(data["image_path"])
+        except AttributeError:
+            pass
+        print(type(data["image"]))
+        return data
+
 
 
     def save_nifti(self, name, im):
