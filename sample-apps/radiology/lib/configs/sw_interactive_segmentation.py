@@ -35,8 +35,8 @@ class SWInteractiveSegmentationConfig(TaskConfig):
 
         # Labels
         self.labels = [
-            "background",
             "tumor",
+            "background",
         ]
         
         self.label_names = {label:self.labels.index(label) for label in self.labels}
