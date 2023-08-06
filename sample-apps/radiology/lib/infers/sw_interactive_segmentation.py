@@ -61,6 +61,8 @@ from sw_interactive_segmentation.utils.helper import AttributeDict
 from sw_interactive_segmentation.utils.transforms import AddGuidanceSignal, PrintDatad
 
 from monai.utils import set_determinism
+from pathlib import Path
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -91,13 +93,14 @@ class SWInteractiveSegmentationInfer(BasicInferTask):
         self.args = AttributeDict()
         self.args.no_log = True
         self.args.output = None
+        self.args.output_dir = None
         self.args.dataset = "AutoPET"
         self.args.train_crop_size = (128,128,128)
         self.args.val_crop_size = None
         self.args.inferer = "SlidingWindowInferer"
         self.args.sw_roi_size = (128,128,128)
         self.args.train_sw_batch_size = 8
-        self.args.val_sw_batch_size = 8
+        self.args.val_sw_batch_size = 24
         self.args.debug = False
         self.args.path = '/projects/mhadlich_segmentation/data/monailabel'
         set_determinism(42)
@@ -109,14 +112,19 @@ class SWInteractiveSegmentationInfer(BasicInferTask):
         print("#########################################")
 
         data['label_dict'] = self.label_names
+        data['label_names'] = self.label_names
         device = data.get("device") if data else None
-        t_val = get_pre_transforms_val_as_list_monailabel(self.label_names, device, self.args, input_keys=["image"])
+        t = []
+        t_val_1, t_val_2 = get_pre_transforms_val_as_list_monailabel(self.label_names, device, self.args, input_keys=["image"])
+        t.extend(t_val_1)
+        self.add_cache_transform(t, data)
+        t.extend(t_val_2)
         #t_val = []
         #t_val.append(NoOpd())
         #t_val.append(LoadImaged(keys="image", reader="ITKReader"))
 
         #t_val.append(NoOpd())
-        return t_val
+        return t
 
     def inferer(self, data=None) -> Inferer:
         _, val_inferer = get_inferers(
@@ -126,6 +134,7 @@ class SWInteractiveSegmentationInfer(BasicInferTask):
             val_crop_size=self.args.val_crop_size,
             train_sw_batch_size=self.args.train_sw_batch_size,
             val_sw_batch_size=self.args.val_sw_batch_size,
+            cache_roi_weight_map=False,
         )
         return val_inferer
 
@@ -218,6 +227,15 @@ class SWInteractiveSegmentationInfer(BasicInferTask):
 
 def post_callback(data): 
     path = '/projects/mhadlich_segmentation/data/monailabel'
+    
+    #for k,v in data.items():
+    #    print(f"k: {k}, v: {v}")
+    image_name = Path(os.path.basename(data["image_path"]))
+    true_image_name = image_name.name.removesuffix(''.join(image_name.suffixes))
+    image_folder = Path(data["image_path"]).parent
+    print(f"{true_image_name=}")
+    print(f"{image_folder}")
+
     # Save the clicks
     clicks_per_label = {}
     for key in data['label_dict'].keys():
