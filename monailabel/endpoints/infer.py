@@ -10,6 +10,7 @@
 # limitations under the License.
 
 import json
+import time
 import logging
 import os
 import pathlib
@@ -17,6 +18,8 @@ import shutil
 import tempfile
 from enum import Enum
 from typing import Optional
+from functools import reduce
+import numbers
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.background import BackgroundTasks
@@ -115,6 +118,7 @@ def run_inference(
     label: UploadFile = File(None),
     output: Optional[ResultType] = None,
 ):
+    start = time.time()
     request = {"model": model, "image": image}
 
     if not file and not image and not session_id:
@@ -158,8 +162,11 @@ def run_inference(
             request["image"] = session.image
             request["session"] = session.to_json()
 
+    latency_request = time.time() - start
     logger.info(f"Infer Request: {request}")
     result = instance.infer(request)
+    result["params"]["latency_request"] = latency_request
+    result["params"]["total"] = reduce(lambda x,y: x+y if isinstance(y, numbers.Number) else x, result["params"].items())
     if result is None:
         raise HTTPException(status_code=500, detail="Failed to execute infer")
     return send_response(instance.datastore(), result, output, background_tasks)

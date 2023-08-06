@@ -263,6 +263,7 @@ class MONAILabelApp:
         Returns:
             JSON containing `label` and `params`
         """
+        start = time.time()
         model = request.get("model")
         if not model:
             raise MONAILabelException(
@@ -295,6 +296,9 @@ class MONAILabelApp:
         else:
             request["save_label"] = False
 
+        latency_setup = time.time() - start
+
+        start = time.time()
         if self._infers_threadpool:
 
             def run_infer_in_thread(t, r):
@@ -305,7 +309,9 @@ class MONAILabelApp:
             result_file_name, result_json = f.result(request.get("timeout", settings.MONAI_LABEL_INFER_TIMEOUT))
         else:
             result_file_name, result_json = task(request)
+        latency_inference = time.time() - start
 
+        start = time.time()
         label_id = None
         if result_file_name and os.path.exists(result_file_name):
             tag = request.get("label_tag", DefaultLabelTag.ORIGINAL)
@@ -316,6 +322,13 @@ class MONAILabelApp:
                 )
             else:
                 label_id = result_file_name
+        
+        latency_write = time.time() - start
+        result_json['latency_setup'] = latency_setup
+        result_json['latency_inference'] = latency_inference
+        result_json['latency_write'] = latency_write
+        
+        logger.info(f"Result Json: {result_json.items()}")
 
         return {"label": label_id, "tag": DefaultLabelTag.ORIGINAL, "file": result_file_name, "params": result_json}
 
