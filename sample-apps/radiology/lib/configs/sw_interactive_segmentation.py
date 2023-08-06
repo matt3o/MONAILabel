@@ -63,6 +63,7 @@ class SWInteractiveSegmentationConfig(TaskConfig):
             labels=self.labels,
             label_names=self.label_names, 
             preload=strtobool(self.conf.get("preload", "false")),
+            config={"cache_transforms": True, "cache_transforms_in_memory": True, "cache_transforms_ttl": 300},
         )
         return task
 
