@@ -51,18 +51,30 @@ from monai.data import decollate_batch
 from monailabel.interfaces.utils.transform import run_transforms
 from monailabel.interfaces.tasks.infer_v2 import InferType
 from monailabel.tasks.infer.basic_infer import BasicInferTask, CallBackTypes
-from sw_interactive_segmentation.api import (
+from sw_fastedit.api import (
     get_pre_transforms, 
     get_post_transforms,
     get_inferers,
     get_pre_transforms_val_as_list_monailabel,
 )
-from sw_interactive_segmentation.utils.helper import AttributeDict
-from sw_interactive_segmentation.utils.transforms import AddGuidanceSignal, PrintDatad
+from sw_fastedit.utils.helper import AttributeDict
+from sw_fastedit.utils.transforms import AddGuidanceSignal, PrintDatad, AddEmptySignalChannels, NormalizeLabelsInDatasetd, SignalFillEmptyd
 
 from monai.utils import set_determinism
 from pathlib import Path
 import os
+
+from monai.transforms import (
+    LoadImaged,
+    Orientationd,
+    CenterSpatialCropd,
+    EnsureChannelFirstd,
+    ScaleIntensityRangePercentilesd,
+    Identityd,
+)
+
+from monai.inferers import SimpleInferer, SlidingWindowInferer
+
 
 logger = logging.getLogger(__name__)
 
@@ -76,6 +88,7 @@ class SWInteractiveSegmentationInfer(BasicInferTask):
         labels=None,
         label_names=None,
         dimension=3,
+        target_spacing=(1.0, 1.0, 1.0),
         description="",
         **kwargs,
     ):
@@ -89,6 +102,8 @@ class SWInteractiveSegmentationInfer(BasicInferTask):
             **kwargs,
         )
         self.label_names = label_names
+        self.target_spacing = target_spacing
+
 
         self.args = AttributeDict()
         self.args.no_log = True
@@ -96,28 +111,65 @@ class SWInteractiveSegmentationInfer(BasicInferTask):
         self.args.output_dir = None
         self.args.dataset = "AutoPET"
         self.args.train_crop_size = (128,128,128)
-        self.args.val_crop_size = None
-        self.args.inferer = "SlidingWindowInferer"
-        self.args.sw_roi_size = (128,128,128)
-        self.args.train_sw_batch_size = 8
-        self.args.val_sw_batch_size = 24
-        self.args.debug = False
+        # Either no crop with None or crop like (128,128,128)
+        self.val_crop_size = None
+        # self.args.debug = False
         self.args.path = '/projects/mhadlich_segmentation/data/monailabel'
         set_determinism(42)
         self.model_state_dict = "net"
         self.load_strict = True
+        
+
+        # Inferer parameters
+        self.sw_overlap = 0.5
+        self.sw_roi_size = (128,128,128)
+        self.train_sw_batch_size = 8
+        self.val_sw_batch_size = 8
+
 
 
     def pre_transforms(self, data=None) -> Sequence[Callable]:
-        print("#########################################")
-
+        # print("#########################################")
         data['label_dict'] = self.label_names
         data['label_names'] = self.label_names
+
+        cpu_device = torch.device("cpu")
         device = data.get("device") if data else None
+        loglevel = logging.DEBUG
+        input_keys=("image", "label")
+
+        
         t = []
-        t_val_1, t_val_2 = get_pre_transforms_val_as_list_monailabel(self.label_names, device, self.args, input_keys=["image"])
+        # t_val_1, t_val_2 = get_pre_transforms_val_as_list_monailabel(self.label_names, device, self.args, input_keys=["image"])
+        t_val_1 = [
+            # Initial transforms on the inputs done on the CPU which does not hurt since they are executed asynchronously and only once
+            # InitLoggerd(loglevel=loglevel, no_log=True, log_dir=None),
+            LoadImaged(keys=input_keys, reader="ITKReader", image_only=False),
+            EnsureChannelFirstd(keys=input_keys),
+            NormalizeLabelsInDatasetd(keys="label", labels=self.label_names, device=cpu_device),
+            ScaleIntensityRangePercentilesd(
+                keys="image", lower=0.05, upper=99.95, b_min=0.0, b_max=1.0, clip=True, relative=False
+            ),
+            EnsureTyped(keys=input_keys, device=device, data_type="tensor"),
+        ]
         t.extend(t_val_1)
         self.add_cache_transform(t, data)
+        t_val_2 = [
+            AddEmptySignalChannels(keys=input_keys, device=device),
+            AddGuidanceSignal(
+                keys=input_keys,
+                sigma=1,
+                disks=True,
+                device=device,
+            ),
+            Orientationd(keys=input_keys, axcodes="RAS"),
+            Spacingd(keys=input_keys, pixdim=self.target_spacing),
+            CenterSpatialCropd(keys=input_keys, roi_size=self.val_crop_size)
+            if self.val_crop_size is not None
+            else Identityd(keys=input_keys, allow_missing_keys=True),
+            SignalFillEmptyd(input_keys),
+            # DivisiblePadd(keys=input_keys, k=64, value=0) if args.inferer == "SimpleInferer" else Identityd(keys=input_keys, allow_missing_keys=True),
+        ]
         t.extend(t_val_2)
         #t_val = []
         #t_val.append(NoOpd())
@@ -127,16 +179,28 @@ class SWInteractiveSegmentationInfer(BasicInferTask):
         return t
 
     def inferer(self, data=None) -> Inferer:
-        _, val_inferer = get_inferers(
-            inferer=self.args.inferer,
-            sw_roi_size=self.args.sw_roi_size,
-            train_crop_size=self.args.train_crop_size,
-            val_crop_size=self.args.val_crop_size,
-            train_sw_batch_size=self.args.train_sw_batch_size,
-            val_sw_batch_size=self.args.val_sw_batch_size,
-            cache_roi_weight_map=False,
+        sw_params = {
+            "roi_size": self.sw_roi_size,
+            "mode":"gaussian",
+            "cache_roi_weight_map": True,
+            "overlap": self.sw_overlap,
+        }
+        eval_inferer = SlidingWindowInferer(
+            sw_batch_size=self.val_batch_size,
+            **sw_params
         )
-        return val_inferer
+        return eval_inferer
+
+        # _, val_inferer = get_inferers(
+        #     inferer=self.args.inferer,
+        #     sw_roi_size=self.args.sw_roi_size,
+        #     train_crop_size=self.args.train_crop_size,
+        #     val_crop_size=self.args.val_crop_size,
+        #     train_sw_batch_size=self.args.train_sw_batch_size,
+        #     val_sw_batch_size=self.args.val_sw_batch_size,
+        #     cache_roi_weight_map=False,
+        # )
+        # return val_inferer
 
     def inverse_transforms(self, data=None) -> Union[None, Sequence[Callable]]:
         return []  # Self-determine from the list of pre-transforms provided
@@ -201,28 +265,28 @@ class SWInteractiveSegmentationInfer(BasicInferTask):
         
         return super().__call__(request, callbacks)
 
-    def run_invert_transforms(self, data: Dict[str, Any], pre_transforms, names):
-        if names is None:
-            return data
+    # def run_invert_transforms(self, data: Dict[str, Any], pre_transforms, names):
+    #     if names is None:
+    #         return data
 
-        pre_names = dict()
-        transforms = []
-        for t in reversed(pre_transforms):
-            if hasattr(t, "inverse"):
-                pre_names[t.__class__.__name__] = t
-                transforms.append(t)
+    #     pre_names = dict()
+    #     transforms = []
+    #     for t in reversed(pre_transforms):
+    #         if hasattr(t, "inverse"):
+    #             pre_names[t.__class__.__name__] = t
+    #             transforms.append(t)
 
-        # Run only selected/given
-        if len(names) > 0:
-            transforms = [pre_transforms[n if isinstance(n, str) else n.__name__] for n in names]
+    #     # Run only selected/given
+    #     if len(names) > 0:
+    #         transforms = [pre_transforms[n if isinstance(n, str) else n.__name__] for n in names]
 
 
-        d = run_transforms(data, transforms, inverse=True, log_prefix="INV")
-        d = copy.deepcopy(dict(data))
-        d[self.input_key] = data[self.output_label_key]
-        d = run_transforms(d, transforms, inverse=True, log_prefix="INV")
-        data[self.output_label_key] = d[self.input_key]
-        return data
+    #     d = run_transforms(data, transforms, inverse=True, log_prefix="INV")
+    #     d = copy.deepcopy(dict(data))
+    #     d[self.input_key] = data[self.output_label_key]
+    #     d = run_transforms(d, transforms, inverse=True, log_prefix="INV")
+    #     data[self.output_label_key] = d[self.input_key]
+    #     return data
 
 
 def post_callback(data): 
@@ -274,26 +338,4 @@ def save_nifti(name, im):
     ni_img = nib.Nifti1Image(im, affine=affine)
     ni_img.header.get_xyzt_units()
     ni_img.to_filename(f"{name}.nii.gz")
-
-class NoOpd(MapTransform):
-    def __init__(self, keys= None):
-        """
-        A transform which does nothing
-        """
-        super().__init__(keys)
-
-    def __call__(
-        self, data
-        ):
-        #print(data["image"])
-        try:
-            print(data["image"])
-            print(data["image_path"])
-        except AttributeError:
-            pass
-        print(type(data["image"]))
-        return data
-
-
-
 
