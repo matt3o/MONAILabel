@@ -71,30 +71,26 @@ class SWFastEditConfig(TaskConfig):
             res_block=True,
         )
 
-        self.target_spacing = [2.03642011, 2.03642011, 3.0]  # AutoPET default
+        AUTOPET_SPACING = (2.03642011, 2.03642011, 3.0)
+        self.target_spacing = AUTOPET_SPACING # AutoPET default
         # Setting ROI size
         self.sw_roi_size = (128, 128, 128)
 
 
 
     def infer(self) -> Union[InferTask, Dict[str, InferTask]]:
+        inferer = lib.infers.SWFastEdit(
+            path=self.path,
+            network=self.network,
+            labels=self.labels,
+            label_names=self.label_names, 
+            preload=strtobool(self.conf.get("preload", "false")),
+            config={"cache_transforms": True, "cache_transforms_in_memory": True, "cache_transforms_ttl": 1200},
+            target_spacing=self.target_spacing
+            )
         return {
-            self.name: lib.infers.SWFastEdit(
-            path=self.path,
-            network=self.network,
-            labels=self.labels,
-            label_names=self.label_names, 
-            preload=strtobool(self.conf.get("preload", "false")),
-            config={"cache_transforms": True, "cache_transforms_in_memory": True, "cache_transforms_ttl": 300},
-            ),
-            f"{self.name}_seg": lib.infers.SWFastEdit(
-            path=self.path,
-            network=self.network,
-            labels=self.labels,
-            label_names=self.label_names, 
-            preload=strtobool(self.conf.get("preload", "false")),
-            config={"cache_transforms": True, "cache_transforms_in_memory": True, "cache_transforms_ttl": 300},
-            ),
+            self.name: inferer,
+            f"{self.name}_seg": inferer,
         }
         # return task
 
