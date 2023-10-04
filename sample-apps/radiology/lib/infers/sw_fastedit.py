@@ -183,7 +183,7 @@ class SWFastEdit(BasicInferTask):
         sw_params = {
             "roi_size": self.sw_roi_size,
             "mode":"gaussian",
-            "cache_roi_weight_map": True,
+            "cache_roi_weight_map": False,
             "overlap": self.sw_overlap,
         }
         eval_inferer = SlidingWindowInferer(
