@@ -106,15 +106,15 @@ class SWFastEdit(BasicInferTask):
 
 
         self.args = AttributeDict()
-        self.args.no_log = True
-        self.args.output = None
-        self.args.output_dir = None
-        self.args.dataset = "AutoPET"
-        self.args.train_crop_size = (128,128,128)
+        # self.args.no_log = True
+        # self.args.output = None
+        # self.args.output_dir = None
+        # self.args.dataset = "AutoPET"
+        # self.args.train_crop_size = (128,128,128)
         # Either no crop with None or crop like (128,128,128)
         self.val_crop_size = None
         # self.args.debug = False
-        self.args.path = '/projects/mhadlich_segmentation/data/monailabel'
+        self.path = '/projects/mhadlich_segmentation/data/monailabel'
         set_determinism(42)
         self.model_state_dict = "net"
         self.load_strict = True
@@ -122,7 +122,7 @@ class SWFastEdit(BasicInferTask):
         
 
         # Inferer parameters
-        self.sw_overlap = 0.1
+        self.sw_overlap = 0.5
         self.sw_roi_size = (128,128,128)
         self.train_sw_batch_size = 8
         self.val_sw_batch_size = 1
@@ -187,7 +187,7 @@ class SWFastEdit(BasicInferTask):
             "overlap": self.sw_overlap,
         }
         eval_inferer = SlidingWindowInferer(
-            sw_batch_size=self.val_batch_size,
+            sw_batch_size=self.val_sw_batch_size,
             **sw_params
         )
         return eval_inferer
@@ -231,7 +231,7 @@ class SWFastEdit(BasicInferTask):
         inferer = self.inferer(data)
         logger.info(f"Inferer:: {device} => {inferer.__class__.__name__} => {inferer.__dict__}")
         
-        data["path"] = self.args.path
+        data["path"] = self.path
         network = self._get_network(device, data)
         if network:
             inputs = data[self.input_key]
