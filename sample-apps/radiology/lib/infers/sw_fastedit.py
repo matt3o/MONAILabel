@@ -55,10 +55,10 @@ from sw_fastedit.api import (
     get_pre_transforms, 
     get_post_transforms,
     get_inferers,
-    get_pre_transforms_val_as_list_monailabel,
+    # get_pre_transforms_val_as_list_monailabel,
 )
 from sw_fastedit.utils.helper import AttributeDict
-from sw_fastedit.utils.transforms import AddGuidanceSignal, PrintDatad, AddEmptySignalChannels, NormalizeLabelsInDatasetd, SignalFillEmptyd
+from sw_fastedit.transforms import AddGuidanceSignal, PrintDatad, AddEmptySignalChannels, NormalizeLabelsInDatasetd, SignalFillEmptyd
 
 from monai.utils import set_determinism
 from pathlib import Path
@@ -78,7 +78,7 @@ from monai.inferers import SimpleInferer, SlidingWindowInferer
 
 logger = logging.getLogger(__name__)
 
-class SWInteractiveSegmentationInfer(BasicInferTask):
+class SWFastEdit(BasicInferTask):
 
     def __init__(
         self,
@@ -118,13 +118,14 @@ class SWInteractiveSegmentationInfer(BasicInferTask):
         set_determinism(42)
         self.model_state_dict = "net"
         self.load_strict = True
+        self._amp = True
         
 
         # Inferer parameters
-        self.sw_overlap = 0.5
+        self.sw_overlap = 0.1
         self.sw_roi_size = (128,128,128)
         self.train_sw_batch_size = 8
-        self.val_sw_batch_size = 8
+        self.val_sw_batch_size = 1
 
 
 
@@ -136,7 +137,7 @@ class SWInteractiveSegmentationInfer(BasicInferTask):
         cpu_device = torch.device("cpu")
         device = data.get("device") if data else None
         loglevel = logging.DEBUG
-        input_keys=("image", "label")
+        input_keys=("image")
 
         
         t = []

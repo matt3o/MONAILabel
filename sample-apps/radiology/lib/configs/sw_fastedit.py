@@ -31,7 +31,7 @@ from monai.networks.nets.dynunet import DynUNet
 logger = logging.getLogger(__name__)
 
 
-class SWInteractiveSegmentationConfig(TaskConfig):
+class SWFastEditConfig(TaskConfig):
     def init(self, name: str, model_dir: str, conf: Dict[str, str], planner: Any, **kwargs):
         super().init(name, model_dir, conf, planner, **kwargs)
 
@@ -53,7 +53,7 @@ class SWInteractiveSegmentationConfig(TaskConfig):
         # Model is pretrained on PET scans from the AutoPET dataset
         if strtobool(self.conf.get("use_pretrained_model", "true")):
             url = f"{self.conf.get('pretrained_path', self.PRE_TRAINED_PATH)}"
-            url = f"{url}/sw_interactive_segmentation.pt"
+            url = f"{url}/sw_fastedit_pet.pt"
             download_file(url, self.path[0])
 
         # Network
@@ -79,7 +79,7 @@ class SWInteractiveSegmentationConfig(TaskConfig):
 
     def infer(self) -> Union[InferTask, Dict[str, InferTask]]:
         return {
-            self.name: lib.infers.SWInteractiveSegmentationInfer(
+            self.name: lib.infers.SWFastEdit(
             path=self.path,
             network=self.network,
             labels=self.labels,
@@ -87,7 +87,7 @@ class SWInteractiveSegmentationConfig(TaskConfig):
             preload=strtobool(self.conf.get("preload", "false")),
             config={"cache_transforms": True, "cache_transforms_in_memory": True, "cache_transforms_ttl": 300},
             ),
-            f"{self.name}_seg": lib.infers.SWInteractiveSegmentationInfer(
+            f"{self.name}_seg": lib.infers.SWFastEdit(
             path=self.path,
             network=self.network,
             labels=self.labels,
