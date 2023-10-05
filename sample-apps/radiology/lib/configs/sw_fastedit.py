@@ -18,11 +18,12 @@ import lib.trainers
 from monai.networks.nets import BasicUNet
 
 from monailabel.interfaces.config import TaskConfig
-from monailabel.interfaces.tasks.infer_v2 import InferTask
+from monailabel.interfaces.tasks.infer_v2 import InferTask, InferType
 from monailabel.interfaces.tasks.train import TrainTask
 from monailabel.utils.others.generic import download_file, strtobool
 
 from monai.networks.nets.dynunet import DynUNet
+from monai.data import set_track_meta
 
 # from sw_interactive_segmentation.api import (
 #     get_network,
@@ -58,11 +59,10 @@ class SWFastEditConfig(TaskConfig):
             download_file(url, self.path[0])
 
         # Network
-        in_channels = 1 + len(self.labels)
         self.network = DynUNet(
             spatial_dims=3,
             # 1 dim for the image, the other ones for the signal per label with is the size of image
-            in_channels=in_channels,
+            in_channels=1 + len(self.labels),
             out_channels=len(self.labels),
             kernel_size=[3, 3, 3, 3, 3, 3],
             strides=[1, 2, 2, 2, 2, [2, 2, 1]],
@@ -75,7 +75,9 @@ class SWFastEditConfig(TaskConfig):
         AUTOPET_SPACING = (2.03642011, 2.03642011, 3.0)
         self.target_spacing = AUTOPET_SPACING # AutoPET default
         # Setting ROI size
-        self.sw_roi_size = (128, 128, 128)
+        # self.sw_roi_size = (128, 128, 128)
+
+        # set_track_meta(True)
 
 
 
@@ -88,10 +90,20 @@ class SWFastEditConfig(TaskConfig):
             preload=strtobool(self.conf.get("preload", "false")),
             config={"cache_transforms": True, "cache_transforms_in_memory": True, "cache_transforms_ttl": 1200},
             target_spacing=self.target_spacing
+        )
+        seg_inferer = lib.infers.SWFastEdit(
+            path=self.path,
+            network=self.network,
+            labels=self.labels,
+            label_names=self.label_names, 
+            preload=strtobool(self.conf.get("preload", "false")),
+            target_spacing=self.target_spacing,
+            type=InferType.SEGMENTATION,
             )
+        
         return {
             self.name: inferer,
-            f"{self.name}_seg": inferer,
+            f"{self.name}_seg": seg_inferer,
         }
         # return task
 
