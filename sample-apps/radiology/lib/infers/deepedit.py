@@ -65,12 +65,14 @@ class DeepEdit(BasicInferTask):
             input_key="image",
             output_label_key="pred",
             output_json_key="result",
+            load_strict=False,
             **kwargs,
         )
 
         self.spatial_size = spatial_size
         self.target_spacing = target_spacing
         self.number_intensity_ch = number_intensity_ch
+        self.load_strict = False
 
     def pre_transforms(self, data=None):
         t = [
@@ -119,5 +121,9 @@ class DeepEdit(BasicInferTask):
             AsDiscreted(keys="pred", argmax=True),
             SqueezeDimd(keys="pred", dim=0),
             ToNumpyd(keys="pred"),
-            Restored(keys="pred", ref_image="image"),
+            Restored(
+                keys="pred",
+                ref_image="image",
+                config_labels=self.labels if data.get("restore_label_idx", False) else None,
+            ),
         ]
