@@ -70,6 +70,7 @@ from monai.transforms import (
     CenterSpatialCropd,
     EnsureChannelFirstd,
     ScaleIntensityRangePercentilesd,
+    ScaleIntensityRanged,
     Identityd,
     Invertd,
 )
@@ -148,9 +149,11 @@ class SWFastEdit(BasicInferTask):
             # InitLoggerd(loglevel=loglevel, no_log=True, log_dir=None),
             LoadImaged(keys=input_keys, reader="ITKReader", image_only=False),
             EnsureChannelFirstd(keys=input_keys),
-            ScaleIntensityRangePercentilesd(
-                keys="image", lower=0.05, upper=99.95, b_min=0.0, b_max=1.0, clip=True, relative=False
-            ),
+            # ScaleIntensityRangePercentilesd(
+            #     keys="image", lower=0.05, upper=99.95, b_min=0.0, b_max=1.0, clip=True, relative=False
+            # ),
+            ScaleIntensityRanged(keys="image", a_min=0, a_max=43, b_min=0.0, b_max=1.0, clip=True),
+            SignalFillEmptyd(keys=input_keys),
         ]
         t.extend(t_val_1)
         self.add_cache_transform(t, data)
