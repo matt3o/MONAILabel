@@ -13,11 +13,12 @@ from typing import Callable, Sequence, Union, Dict, Any
 import logging
 import shutil
 import json
-
-import copy
+# import copy
 import torch
 import numpy as np
 import nibabel as nib
+import pkg_resources
+import pathlib
 
 # from monai.apps.deepgrow.transforms import (
 #     AddGuidanceFromPointsd,
@@ -27,8 +28,8 @@ import nibabel as nib
 #     RestoreLabeld,
 #     SpatialCropGuidanced,
 # )
-from monailabel.transform.post import Restored
-from monai.inferers import Inferer, SimpleInferer
+# from monailabel.transform.post import Restored
+from monai.inferers import Inferer, SlidingWindowInferer
 from monai.transforms import (
     Activationsd,
     # AddChanneld,
@@ -51,15 +52,21 @@ from monai.transforms import (
 from monailabel.interfaces.utils.transform import run_transforms
 from monailabel.interfaces.tasks.infer_v2 import InferType
 from monailabel.tasks.infer.basic_infer import BasicInferTask, CallBackTypes
-from sw_fastedit.api import (
-    get_pre_transforms, 
-    get_post_transforms,
-    get_inferers,
-    # get_pre_transforms_val_as_list_monailabel,
-)
-from sw_fastedit.utils.helper import AttributeDict
+# from sw_fastedit.api import (
+#     get_pre_transforms, 
+#     get_post_transforms,
+#     get_inferers,
+#     # get_pre_transforms_val_as_list_monailabel,
+# )
+# from sw_fastedit.utils.helper import AttributeDict
 from sw_fastedit.transforms import AddGuidanceSignal, AddEmptySignalChannels, NormalizeLabelsInDatasetd
-from sw_fastedit.helper_transforms import SignalFillEmptyd
+# from sw_fastedit.helper_transforms import SignalFillEmptyd
+
+monai_version = pkg_resources.get_distribution("monai").version
+if pkg_resources.parse_version(monai_version) >= pkg_resources.parse_version('1.3.0'):
+    from monai.transforms import SignalFillEmptyd
+else:
+    from sw_fastedit.helper_transforms import SignalFillEmptyd
 
 from monai.utils import set_determinism
 from pathlib import Path
@@ -70,14 +77,9 @@ from monai.transforms import (
     Orientationd,
     CenterSpatialCropd,
     EnsureChannelFirstd,
-    ScaleIntensityRangePercentilesd,
     ScaleIntensityRanged,
     Identityd,
-    Invertd,
 )
-import pathlib
-from monai.inferers import SimpleInferer, SlidingWindowInferer
-
 
 logger = logging.getLogger(__name__)
 
