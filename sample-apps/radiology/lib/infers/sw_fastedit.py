@@ -63,10 +63,12 @@ from sw_fastedit.transforms import AddGuidanceSignal, AddEmptySignalChannels, No
 # from sw_fastedit.helper_transforms import SignalFillEmptyd
 
 monai_version = pkg_resources.get_distribution("monai").version
-if pkg_resources.parse_version(monai_version) >= pkg_resources.parse_version('1.3.0'):
-    from monai.transforms import SignalFillEmptyd
-else:
-    from sw_fastedit.helper_transforms import SignalFillEmptyd
+if not pkg_resources.parse_version(monai_version) >= pkg_resources.parse_version('1.3.0'):
+    raise UserWarning("This code needs at least MONAI 1.3.0")
+
+from monai.transforms import SignalFillEmptyd
+#else:
+#    from sw_fastedit.utils.helper_transforms import SignalFillEmptyd
 
 from monai.utils import set_determinism
 from pathlib import Path
@@ -121,7 +123,7 @@ class SWFastEdit(BasicInferTask):
         self.sw_overlap = 0.25
         self.sw_roi_size = (128,128,128)
         self.train_sw_batch_size = 8
-        self.val_sw_batch_size = 4
+        self.val_sw_batch_size = 16
 
     def __call__(self, request, callbacks= None):
         if callbacks is None:
