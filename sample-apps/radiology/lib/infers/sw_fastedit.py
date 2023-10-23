@@ -115,14 +115,20 @@ class SWFastEdit(BasicInferTask):
         self.model_state_dict = "net"
         self.load_strict = True
         self._amp = True
-        # Either no crop with None or crop like (128,128,128)
+        # Either no crop with None or crop like (128,128,128), sliding window does not need this parameter unless
+        # too much memory is used for the stitching of the output windows
         self.val_crop_size = None
         
 
         # Inferer parameters
+        # Increase the overlap for up to 1% more Dice, however the time and memory consumption increase a lot!
         self.sw_overlap = 0.25
+        # Should be the same ROI size as it was trained on
         self.sw_roi_size = (128,128,128)
+        
+        # Reduce this if you run into OOMs
         self.train_sw_batch_size = 8
+        # Reduce this if you run into OOMs
         self.val_sw_batch_size = 16
 
     def __call__(self, request, callbacks= None):
