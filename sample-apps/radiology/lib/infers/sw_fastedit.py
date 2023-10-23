@@ -167,7 +167,7 @@ class SWFastEdit(BasicInferTask):
             SignalFillEmptyd(keys=input_keys),
         ]
         t.extend(t_val_1)
-        self.add_cache_transform(t, data)
+        # self.add_cache_transform(t, data)
         t_val_2 = [
             AddEmptySignalChannels(keys=input_keys, device=device),
             AddGuidanceSignal(
