@@ -66,7 +66,7 @@ class MyApp(MONAILabelApp):
 
         models = models.split(",")
         models = [m.strip() for m in models]
-        self.scribbles = bool(conf.get("scribbles", True))
+        self.scribbles = conf.get("scribbles", "True") == "True"
         # if "no_scribbles" in models:
         #     self.no_scribbles = True
         #     models.remove('no_scribbles')
