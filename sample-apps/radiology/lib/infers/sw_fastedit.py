@@ -60,6 +60,7 @@ from monailabel.tasks.infer.basic_infer import BasicInferTask, CallBackTypes
 # )
 # from sw_fastedit.utils.helper import AttributeDict
 from sw_fastedit.transforms import AddGuidanceSignal, AddEmptySignalChannels, NormalizeLabelsInDatasetd
+# from lib.transforms.sw_fastedit import AddGuidanceSignal, AddEmptySignalChannels, NormalizeLabelsInDatasetd
 # from sw_fastedit.helper_transforms import SignalFillEmptyd
 
 monai_version = pkg_resources.get_distribution("monai").version
@@ -95,7 +96,7 @@ class SWFastEdit(BasicInferTask):
         labels=None,
         label_names=None,
         dimension=3,
-        target_spacing=(1.0, 1.0, 1.0),
+        target_spacing=(2.03642011, 2.03642011, 3.0),
         description="",
         **kwargs,
     ):
