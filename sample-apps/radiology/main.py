@@ -66,12 +66,8 @@ class MyApp(MONAILabelApp):
 
         models = models.split(",")
         models = [m.strip() for m in models]
+        # Can be configured with --conf scribbles False or True
         self.scribbles = conf.get("scribbles", "True") == "True"
-        # if "no_scribbles" in models:
-        #     self.no_scribbles = True
-        #     models.remove('no_scribbles')
-        # else:
-        #     self.no_scribbles = False
         invalid = [m for m in models if m != "all" and not configs.get(m)]
         if invalid:
             print("")
