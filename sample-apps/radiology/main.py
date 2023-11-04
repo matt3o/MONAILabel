@@ -66,11 +66,12 @@ class MyApp(MONAILabelApp):
 
         models = models.split(",")
         models = [m.strip() for m in models]
-        if "no_scribbles" in models:
-            self.no_scribbles = True
-            models.remove('no_scribbles')
-        else:
-            self.no_scribbles = False
+        self.scribbles = bool(conf.get("scribbles", True))
+        # if "no_scribbles" in models:
+        #     self.no_scribbles = True
+        #     models.remove('no_scribbles')
+        # else:
+        #     self.no_scribbles = False
         invalid = [m for m in models if m != "all" and not configs.get(m)]
         if invalid:
             print("")
@@ -143,7 +144,7 @@ class MyApp(MONAILabelApp):
         #################################################
         # Scribbles
         #################################################
-        if not self.no_scribbles:
+        if self.scribbles:
             infers.update(
                 {
                     "Histogram+GraphCut": HistogramBasedGraphCut(
