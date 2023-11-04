@@ -91,19 +91,20 @@ class SWFastEditConfig(TaskConfig):
             config={"cache_transforms": True, "cache_transforms_in_memory": True, "cache_transforms_ttl": 1200},
             target_spacing=self.target_spacing
         )
-        seg_inferer = lib.infers.SWFastEdit(
-            path=self.path,
-            network=self.network,
-            labels=self.labels,
-            label_names=self.label_names, 
-            preload=strtobool(self.conf.get("preload", "false")),
-            target_spacing=self.target_spacing,
-            type=InferType.SEGMENTATION,
-            )
+        # Reenable this for the Auto Segmentation support
+        # seg_inferer = lib.infers.SWFastEdit(
+        #     path=self.path,
+        #     network=self.network,
+        #     labels=self.labels,
+        #     label_names=self.label_names, 
+        #     preload=strtobool(self.conf.get("preload", "false")),
+        #     target_spacing=self.target_spacing,
+        #     type=InferType.SEGMENTATION,
+        #     )
         
         return {
             self.name: inferer,
-            f"{self.name}_seg": seg_inferer,
+            # f"{self.name}_seg": seg_inferer,
         }
         # return task
 
