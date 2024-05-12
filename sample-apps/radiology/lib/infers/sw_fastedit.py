@@ -13,55 +13,29 @@ from typing import Callable, Sequence, Union, Dict, Any
 import logging
 import shutil
 import json
-# import copy
+
 import torch
 import numpy as np
 import nibabel as nib
 import pkg_resources
 import pathlib
 
-# from monai.apps.deepgrow.transforms import (
-#     AddGuidanceFromPointsd,
-#     AddGuidanceSignald,
-#     Fetch2DSliced,
-#     ResizeGuidanced,
-#     RestoreLabeld,
-#     SpatialCropGuidanced,
-# )
-# from monailabel.transform.post import Restored
 from monai.inferers import Inferer, SlidingWindowInferer
 from monai.transforms import (
     Activationsd,
-    # AddChanneld,
-    # AsChannelFirstd,
-    # AsChannelLastd,
     AsDiscreted,
     EnsureTyped,
     LoadImaged,
-    # NormalizeIntensityd,
-    # Resized,
     Spacingd,
-    # ToNumpyd,
     SqueezeDimd,
-    # MapTransform,
     Compose,
 )
-# from monai.transforms.transform import MapTransform
-# from monai.data import decollate_batch
 
 from monailabel.interfaces.utils.transform import run_transforms
 from monailabel.interfaces.tasks.infer_v2 import InferType
 from monailabel.tasks.infer.basic_infer import BasicInferTask, CallBackTypes
-# from sw_fastedit.api import (
-#     get_pre_transforms, 
-#     get_post_transforms,
-#     get_inferers,
-#     # get_pre_transforms_val_as_list_monailabel,
-# )
-# from sw_fastedit.utils.helper import AttributeDict
+
 from sw_fastedit.transforms import AddGuidanceSignal, AddEmptySignalChannels, NormalizeLabelsInDatasetd
-# from lib.transforms.sw_fastedit import AddGuidanceSignal, AddEmptySignalChannels, NormalizeLabelsInDatasetd
-# from sw_fastedit.helper_transforms import SignalFillEmptyd
 
 monai_version = pkg_resources.get_distribution("monai").version
 if not pkg_resources.parse_version(monai_version) >= pkg_resources.parse_version('1.3.0'):
